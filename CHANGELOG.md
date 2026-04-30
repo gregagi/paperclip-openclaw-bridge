@@ -2,9 +2,9 @@
 
 ## Unreleased
 
-- Publish to npm automatically when a GitHub Release is published
-- Validate that the release tag matches `package.json` version before publishing
-- Publish prereleases to npm under the `next` dist-tag by default
+- Switch release automation to Changesets-driven versioning and npm publishing
+- Add CI on PRs and `main` so validation runs separately from publishing
+- Document squash-merge + semver + changeset workflow for autonomous releases
 
 ## 0.1.0
 

@@ -50,7 +50,10 @@
     "clean": "rm -rf dist",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "npm run build && changeset publish"
   },
   "dependencies": {
     "@paperclipai/adapter-utils": "^0.3.1",
@@ -58,6 +61,8 @@
     "ws": "^8.19.0"
   },
   "devDependencies": {
+    "@changesets/changelog-github": "^0.5.1",
+    "@changesets/cli": "^2.29.7",
     "@types/node": "^24.6.0",
     "@types/ws": "^8.18.1",
     "typescript": "^5.7.3",
