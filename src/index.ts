@@ -42,7 +42,9 @@ Gateway connect identity fields:
 - clientMode (string, optional): gateway client mode (default backend)
 - clientVersion (string, optional): client version string
 - role (string, optional): gateway role (default operator)
-- scopes (string[] | comma string, optional): gateway scopes (default ["operator.admin"])
+- scopes (string[] | comma string, optional): gateway scopes (default ["operator.admin", "operator.pairing"]); the gateway token must also be allowed to use requested scopes
+- devicePrivateKeyPem (string, recommended): dedicated Ed25519 private key PEM used for stable device identity across heartbeats
+- deviceFamily (string, optional): label sent with device-auth pairing requests (default paperclip-openclaw-bridge)
 - disableDeviceAuth (boolean, optional): disable signed device payload in connect params (default false)
 
 Request behavior fields:

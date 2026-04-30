@@ -51,13 +51,22 @@ Use adapter type `openclaw_bridge` and config like:
 {
   "url": "ws://127.0.0.1:18789",
   "role": "operator",
-  "scopes": ["operator.admin"],
+  "scopes": ["operator.admin", "operator.pairing"],
   "authToken": "<gateway-token>",
+  "devicePrivateKeyPem": "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n",
+  "deviceFamily": "paperclip-openclaw-bridge",
   "timeoutSec": 120,
   "waitTimeoutMs": 120000,
   "disableDeviceAuth": false,
   "sessionKeyStrategy": "issue"
 }
+```
+
+For device-auth deployments, generate a dedicated Ed25519 private key and save the full private PEM in `devicePrivateKeyPem`. Without a persisted key the adapter generates an ephemeral device identity each run, so every heartbeat can require a fresh manual approval.
+
+```bash
+openssl genpkey -algorithm Ed25519 -out ari-openclaw-device-key.pem
+cat ari-openclaw-device-key.pem
 ```
 
 ## Development
