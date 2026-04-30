@@ -67,13 +67,25 @@ npm run test
 npm run build
 ```
 
-## Publish
+## Release and publish
 
-```bash
-npm publish --access public
-```
+Publishing is automated through GitHub Actions when a **GitHub Release** is published.
 
-If npm auth is not already configured in your environment, publishing will fail until you log in or provide a token.
+### Stable release flow
+
+1. Merge code to `main`
+2. Bump `package.json` version
+3. Update `CHANGELOG.md`
+4. Create and publish a GitHub Release with tag `vX.Y.Z`
+5. The workflow validates that the tag matches `package.json`, then runs typecheck, tests, build, and `npm publish`
+
+### Prerelease flow
+
+If you publish a GitHub prerelease such as `v0.2.0-beta.1`, the workflow publishes it to npm under the `next` dist-tag by default.
+
+### Manual fallback
+
+The workflow also supports manual dispatch if a release ever needs to be re-run deliberately.
 
 ## Package contract
 
