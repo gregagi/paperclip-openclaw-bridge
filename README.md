@@ -43,6 +43,8 @@ curl -X POST http://localhost:3102/api/adapters/install \
 
 ## Configure an agent
 
+In recent versions, Paperclip should render adapter-specific form fields for this external adapter automatically, including the required gateway WebSocket URL.
+
 Use adapter type `openclaw_bridge` and config like:
 
 ```json

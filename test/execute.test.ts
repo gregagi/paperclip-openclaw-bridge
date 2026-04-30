@@ -3,6 +3,7 @@ import { createServer } from "node:http";
 import { WebSocketServer } from "ws";
 import type { AdapterExecutionContext } from "@paperclipai/adapter-utils";
 import { execute, resolveSessionKey } from "../src/server/execute.js";
+import { createServerAdapter } from "../src/server/adapter.js";
 
 function buildContext(
   config: Record<string, unknown>,
@@ -134,6 +135,17 @@ describe("resolveSessionKey", () => {
     expect(resolveSessionKey({ strategy: "fixed", configuredSessionKey: "agent:meridian:paperclip", agentId: "meridian", runId: "run-123", issueId: null })).toBe(
       "agent:meridian:paperclip",
     );
+  });
+});
+
+describe("createServerAdapter", () => {
+  it("exposes a config schema so Paperclip can render gateway fields in the agent form", async () => {
+    const adapter = createServerAdapter();
+    const schema = await adapter.getConfigSchema?.();
+
+    expect(schema?.fields.some((field) => field.key === "url" && field.required === true)).toBe(true);
+    expect(schema?.fields.some((field) => field.key === "authToken")).toBe(true);
+    expect(schema?.fields.some((field) => field.key === "sessionKeyStrategy")).toBe(true);
   });
 });
 
