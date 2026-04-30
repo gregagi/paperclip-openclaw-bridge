@@ -1,7 +1,22 @@
+import { createServerAdapter } from "./server/adapter.js";
+
 export const type = "openclaw_bridge";
 export const label = "OpenClaw Bridge";
 
 export const models: { id: string; label: string }[] = [];
+
+export const manifest = {
+  id: "paperclip-openclaw-bridge",
+  name: label,
+  description: "Third-party Paperclip adapter for OpenClaw Gateway",
+  adapters: [
+    {
+      type,
+      label,
+      models,
+    },
+  ],
+};
 
 export const agentConfigurationDoc = `# openclaw_bridge agent configuration
 
@@ -49,3 +64,4 @@ Compatibility note:
 `;
 
 export { createServerAdapter } from "./server/adapter.js";
+export default createServerAdapter();

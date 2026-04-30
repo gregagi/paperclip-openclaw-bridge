@@ -12,8 +12,20 @@
     "url": "https://github.com/gregagi/paperclip-openclaw-bridge.git"
   },
   "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "paperclip": {
-    "adapterUiParser": "1.0.0"
+    "adapterUiParser": "1.0.0",
+    "manifest": "./dist/index.js",
+    "adapters": [
+      {
+        "type": "openclaw_bridge",
+        "label": "OpenClaw Bridge",
+        "serverModule": "./dist/server/index.js",
+        "uiModule": "./dist/ui/index.js",
+        "cliModule": "./dist/cli/index.js"
+      }
+    ]
   },
   "exports": {
     ".": {
