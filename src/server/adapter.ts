@@ -53,8 +53,21 @@ const configSchema: AdapterConfigSchema = {
       key: "scopes",
       label: "Gateway scopes",
       type: "text",
-      default: "operator.admin",
-      hint: "Comma-separated scopes. Example: operator.admin,operator.read",
+      default: "operator.admin,operator.pairing",
+      hint: "Comma-separated scopes. Include operator.pairing if you want automatic device-pair approval; the gateway token must also be allowed to use that scope.",
+    },
+    {
+      key: "devicePrivateKeyPem",
+      label: "Device private key PEM",
+      type: "textarea",
+      hint: "Paste a dedicated Ed25519 PRIVATE KEY PEM to keep the bridge device id stable across heartbeats. Generate with: openssl genpkey -algorithm Ed25519 -out ari-openclaw-device-key.pem",
+    },
+    {
+      key: "deviceFamily",
+      label: "Device family",
+      type: "text",
+      default: "paperclip-openclaw-bridge",
+      hint: "Optional label sent with device-auth pairing requests.",
     },
     {
       key: "disableDeviceAuth",

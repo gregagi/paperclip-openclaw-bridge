@@ -84,7 +84,7 @@ type GatewayClientRequestOptions = {
 };
 
 const PROTOCOL_VERSION = 3;
-const DEFAULT_SCOPES = ["operator.admin"];
+const DEFAULT_SCOPES = ["operator.admin", "operator.pairing"];
 const DEFAULT_CLIENT_ID = "gateway-client";
 const DEFAULT_CLIENT_MODE = "backend";
 const DEFAULT_CLIENT_VERSION = "paperclip";
@@ -1071,7 +1071,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const clientVersion = nonEmpty(ctx.config.clientVersion) ?? DEFAULT_CLIENT_VERSION;
   const role = nonEmpty(ctx.config.role) ?? DEFAULT_ROLE;
   const scopes = normalizeScopes(ctx.config.scopes);
-  const deviceFamily = nonEmpty(ctx.config.deviceFamily);
+  const deviceFamily = nonEmpty(ctx.config.deviceFamily) ?? "paperclip-openclaw-bridge";
   const disableDeviceAuth = parseBoolean(ctx.config.disableDeviceAuth, false);
 
   const wakePayload = buildWakePayload(ctx);
