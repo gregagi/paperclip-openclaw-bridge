@@ -69,23 +69,35 @@ npm run build
 
 ## Release and publish
 
-Publishing is automated through GitHub Actions when a **GitHub Release** is published.
+This repo uses **Changesets** for semver decisions, changelog generation, and npm publishing.
 
-### Stable release flow
+### Day-to-day flow
 
-1. Merge code to `main`
-2. Bump `package.json` version
-3. Update `CHANGELOG.md`
-4. Create and publish a GitHub Release with tag `vX.Y.Z`
-5. The workflow validates that the tag matches `package.json`, then runs typecheck, tests, build, and `npm publish`
+1. Open a PR with code changes
+2. Add a changeset with `npx changeset` if the change should ship
+3. Merge the PR to `main`
+4. GitHub Actions automatically opens or updates a release PR
+5. When that release PR is merged, GitHub Actions publishes the package to npm automatically
 
-### Prerelease flow
+### Versioning rules
 
-If you publish a GitHub prerelease such as `v0.2.0-beta.1`, the workflow publishes it to npm under the `next` dist-tag by default.
+- `patch` for fixes and low-risk behavior corrections
+- `minor` for backward-compatible features
+- `major` for breaking changes
 
-### Manual fallback
+### Prereleases
 
-The workflow also supports manual dispatch if a release ever needs to be re-run deliberately.
+If we want preview builds, we can cut prerelease versions such as `0.2.0-beta.1` through Changesets and publish them under a non-default npm dist-tag when needed.
+
+### Merge strategy
+
+Recommended default: **squash merge PRs into `main`**.
+
+That keeps `main` readable while still preserving the full small-commit history inside each PR branch and PR timeline.
+
+### Commit style
+
+Use conventional-commit style when practical (`fix:`, `feat:`, `chore:`), but Changesets — not commit parsing — is the source of truth for version bumps and changelog entries.
 
 ## Package contract
 
