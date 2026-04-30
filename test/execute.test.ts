@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { createServer } from "node:http";
 import { WebSocketServer } from "ws";
 import type { AdapterExecutionContext } from "@paperclipai/adapter-utils";
+import adapterDefault, { manifest } from "../src/index.js";
 import { execute, resolveSessionKey } from "../src/server/execute.js";
 import { createServerAdapter } from "../src/server/adapter.js";
 
@@ -135,6 +136,16 @@ describe("resolveSessionKey", () => {
     expect(resolveSessionKey({ strategy: "fixed", configuredSessionKey: "agent:meridian:paperclip", agentId: "meridian", runId: "run-123", issueId: null })).toBe(
       "agent:meridian:paperclip",
     );
+  });
+});
+
+describe("package root exports", () => {
+  it("exposes manifest metadata and a default server adapter instance", () => {
+    expect(manifest).toMatchObject({
+      id: "paperclip-openclaw-bridge",
+      adapters: [{ type: "openclaw_bridge", label: "OpenClaw Bridge" }],
+    });
+    expect(adapterDefault).toMatchObject({ type: "openclaw_bridge" });
   });
 });
 
