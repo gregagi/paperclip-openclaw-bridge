@@ -10,6 +10,7 @@ This package exists as a pragmatic external adapter path while Paperclip's built
 - Keeps the familiar OpenClaw Gateway transport and config surface
 - **Never sends a root-level `paperclip` key** in outbound OpenClaw `agent` requests
 - Preserves Paperclip wake context by embedding it in the rendered `message` payload instead
+- **Stateless Agent Support**: Automatically proxies completion signals from agents that are disconnected from the Paperclip REST API.
 
 That last point matters because current OpenClaw gateway validation rejects unknown top-level params with errors like:
 
@@ -72,8 +73,7 @@ This is the known-good shape for a self-hosted Paperclip agent such as Ari conne
   "clientId": "gateway-client",
   "clientMode": "backend",
   "clientVersion": "",
-  "autoPairOnFirstConnect": true,
-  "paperclipApiUrl": "https://paperclip.example.com"
+  "autoPairOnFirstConnect": true
 }
 ```
 
@@ -95,9 +95,20 @@ Equivalent Paperclip UI fields:
 - **Gateway client mode**: `clientMode`
 - **Gateway client version**: `clientVersion`
 - **Auto-pair on first connect**: `autoPairOnFirstConnect`
-- **Paperclip API URL**: `paperclipApiUrl`
 
-### Field reference
+
+## Agent Completion Signals
+
+Since agents using this bridge are often disconnected from the Paperclip REST API, they cannot mark tasks as "done" or "blocked" themselves. 
+
+The bridge solves this by scanning the agent's response for special markers. To use this feature, the agent must include one of the following lines exactly as shown:
+
+- `STATUS: DONE` – The bridge will automatically mark the Paperclip issue as **Done**.
+- `STATUS: BLOCKED` – The bridge will automatically mark the Paperclip issue as **Blocked**.
+
+These markers are case-insensitive but **must be placed on their own line** in the agent's response summary.
+
+## Field reference
 
 #### `url` / Gateway WebSocket URL
 

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.0
+
+### Minor Changes
+
+- **Stateless Agent Migration**: Removed the requirement for remote agents to have direct access to the Paperclip REST API. The bridge now injects all necessary context into the wake prompt.
+- **Automated Status Proxying**: Implemented a "Proxy Secretary" model that scans agent summaries for `STATUS: DONE` or `STATUS: BLOCKED` and autonomously updates Paperclip issue states.
+- **Prompt Refactoring**: Redesigned the agent wake prompt to be cleaner, more professional, and free of technical metadata noise.
+- **Schema Cleanup**: Removed the deprecated `paperclipApiUrl` configuration field.
+- **Retry Loop Prevention**: Explicitly include agent summaries in execution results to satisfy Paperclip invariants and prevent orphaned issue retries.
+
 ## 0.1.4
 
 ### Patch Changes

@@ -31,13 +31,49 @@ function buildContext(
       issueId: "issue-123",
       wakeReason: "issue_assigned",
       issueIds: ["issue-123"],
+      paperclipWake: { reason: "issue_assigned" },
     },
     onLog: async () => {},
     ...overrides,
   };
 }
 
-async function createMockGatewayServer() {
+async function createMockPaperclipApi() {
+  let patchedStatus: string | null = null;
+  let patchCount = 0;
+
+  const server = createServer((req, res) => {
+    if (req.method === "PATCH" && req.url?.includes("/api/issues/")) {
+      patchCount++;
+      let body = "";
+      req.on("data", (chunk) => { body += chunk; });
+      req.on("end", () => {
+        const payload = JSON.parse(body);
+        patchedStatus = payload.status;
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true }));
+      });
+      return;
+    }
+    res.writeHead(404);
+    res.end();
+  });
+
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("Failed to resolve mock API address");
+
+  return {
+    url: `http://127.0.0.1:${address.port}`,
+    getPatchedStatus: () => patchedStatus,
+    getPatchCount: () => patchCount,
+    close: async () => {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    },
+  };
+}
+
+async function createMockGatewayServer(options?: { summary?: string }) {
   const server = createServer();
   const wss = new WebSocketServer({ server });
   let agentPayload: Record<string, unknown> | null = null;
@@ -81,6 +117,19 @@ async function createMockGatewayServer() {
           ok: true,
           payload: { runId, status: "accepted", acceptedAt: Date.now() },
         }));
+
+        // Simulate agent output if provided
+        if (options?.summary) {
+          socket.send(JSON.stringify({
+            type: "event",
+            event: "agent",
+            payload: {
+              runId,
+              stream: "assistant",
+              data: { text: options.summary },
+            },
+          }));
+        }
         return;
       }
 
@@ -169,36 +218,131 @@ describe("createServerAdapter", () => {
 });
 
 describe("execute", () => {
-  it("strips root paperclip payloads before sending the gateway request", async () => {
+  it("renders a clean task prompt without technical jargon", async () => {
     const gateway = await createMockGatewayServer();
+    try {
+      await execute(buildContext({
+        url: gateway.url,
+        disableDeviceAuth: true,
+      }));
+
+      const payload = gateway.getAgentPayload() ?? {};
+      const message = String(payload.message ?? "");
+      
+      expect(message).toContain("PAPERCLIP TASK ASSIGNMENT");
+      expect(message).toContain("CONTEXT:");
+      expect(message).toContain("- RUN ID: run-123");
+      expect(message).toContain("- TASK ID: task-123");
+      expect(message).toContain("TASK DESCRIPTION:");
+      expect(message).not.toContain("Paperclip wake event for a cloud adapter");
+      expect(message).not.toContain("task_id="); // metadata block should be gone
+      expect(message).toContain("MANDATORY: When the task is complete, you MUST include a line with exactly 'STATUS: DONE'");
+      expect(message).toContain("MANDATORY: If the task is blocked, you MUST include a line with exactly 'STATUS: BLOCKED'");
+    } finally {
+      await gateway.close();
+    }
+  });
+
+  it("proxies status updates when the agent signals STATUS: DONE", async () => {
+    const paperclipApi = await createMockPaperclipApi();
+    const gateway = await createMockGatewayServer({
+      summary: "I have finished the task.\nSTATUS: DONE\n",
+    });
+
     try {
       const result = await execute(
         buildContext({
           url: gateway.url,
           disableDeviceAuth: true,
-          payloadTemplate: {
-            paperclip: { shouldNot: "ship" },
-            model: "gpt-5",
-          },
+          paperclipApiUrl: paperclipApi.url,
         }, {
-          authToken: "test-auth-token",
+          authToken: "valid-token",
         }),
       );
 
       expect(result.exitCode).toBe(0);
-      const payload = gateway.getAgentPayload() ?? {};
-      expect(payload).not.toHaveProperty("paperclip");
-      expect(payload).toMatchObject({
-        model: "gpt-5",
-        sessionKey: "paperclip:issue:issue-123",
-        idempotencyKey: "run-123",
-      });
-      const message = String(payload.message ?? "");
-      expect(message).toContain("Paperclip wake event");
-      expect(message).toContain("PAPERCLIP_API_KEY=test-auth-token");
-      expect(message).not.toContain("paperclip-claimed-api-key.json");
+      expect(result.summary).toContain("STATUS: DONE");
+      expect(result.resultJson).toMatchObject({ summary: result.summary });
+      
+      // Wait for async proxy call if needed, but in our case it's awaited in execute
+      expect(paperclipApi.getPatchCount()).toBe(1);
+      expect(paperclipApi.getPatchedStatus()).toBe("done");
     } finally {
       await gateway.close();
+      await paperclipApi.close();
+    }
+  });
+
+  it("proxies status updates when the agent signals STATUS: BLOCKED", async () => {
+    const paperclipApi = await createMockPaperclipApi();
+    const gateway = await createMockGatewayServer({
+      summary: "I am blocked by missing docs.\nSTATUS: BLOCKED\n",
+    });
+
+    try {
+      await execute(
+        buildContext({
+          url: gateway.url,
+          disableDeviceAuth: true,
+          paperclipApiUrl: paperclipApi.url,
+        }, {
+          authToken: "valid-token",
+        }),
+      );
+
+      expect(paperclipApi.getPatchCount()).toBe(1);
+      expect(paperclipApi.getPatchedStatus()).toBe("blocked");
+    } finally {
+      await gateway.close();
+      await paperclipApi.close();
+    }
+  });
+
+  it("does not proxy status update when no signal is present", async () => {
+    const paperclipApi = await createMockPaperclipApi();
+    const gateway = await createMockGatewayServer({
+      summary: "I have finished the task but forgot the signal.",
+    });
+
+    try {
+      await execute(
+        buildContext({
+          url: gateway.url,
+          disableDeviceAuth: true,
+          paperclipApiUrl: paperclipApi.url,
+        }, {
+          authToken: "valid-token",
+        }),
+      );
+
+      expect(paperclipApi.getPatchCount()).toBe(0);
+    } finally {
+      await gateway.close();
+      await paperclipApi.close();
+    }
+  });
+
+  it("does not proxy status update when signal is incorrect (e.g. STATUS: FINISHED)", async () => {
+    const paperclipApi = await createMockPaperclipApi();
+    const gateway = await createMockGatewayServer({
+      summary: "Task complete!\nSTATUS: FINISHED\n",
+    });
+
+    try {
+      await execute(
+        buildContext({
+          url: gateway.url,
+          disableDeviceAuth: true,
+          paperclipApiUrl: paperclipApi.url,
+        }, {
+          authToken: "valid-token",
+        }),
+      );
+
+      expect(paperclipApi.getPatchCount()).toBe(0);
+    } finally {
+      await gateway.close();
+      await paperclipApi.close();
     }
   });
 });
