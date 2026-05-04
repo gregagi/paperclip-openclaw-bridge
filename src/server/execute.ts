@@ -328,11 +328,6 @@ function resolvePaperclipApiUrlOverride(value: unknown): string | null {
   }
 }
 
-const DEFAULT_CLAIMED_API_KEY_PATH = "~/.openclaw/workspace/paperclip-claimed-api-key.json";
-
-function resolveClaimedApiKeyPath(value: unknown): string {
-  return nonEmpty(value) ?? DEFAULT_CLAIMED_API_KEY_PATH;
-}
 
 function buildPaperclipEnvForWake(ctx: AdapterExecutionContext, wakePayload: WakePayload): Record<string, string> {
   const paperclipApiUrlOverride = resolvePaperclipApiUrlOverride(ctx.config.paperclipApiUrl);
@@ -341,6 +336,9 @@ function buildPaperclipEnvForWake(ctx: AdapterExecutionContext, wakePayload: Wak
     PAPERCLIP_RUN_ID: ctx.runId,
   };
 
+  if (ctx.authToken) {
+    paperclipEnv.PAPERCLIP_API_KEY = ctx.authToken;
+  }
   if (paperclipApiUrlOverride) {
     paperclipEnv.PAPERCLIP_API_URL = paperclipApiUrlOverride;
   }
@@ -373,6 +371,7 @@ function buildWakeText(
     "PAPERCLIP_APPROVAL_ID",
     "PAPERCLIP_APPROVAL_STATUS",
     "PAPERCLIP_LINKED_ISSUE_IDS",
+    "PAPERCLIP_API_KEY",
   ];
 
   const envLines: string[] = [];
@@ -392,9 +391,10 @@ function buildWakeText(
     "",
     "Set these values in your run context:",
     ...envLines,
-    `PAPERCLIP_API_KEY=<token from ${claimedApiKeyPath}>`,
     "",
-    `Load PAPERCLIP_API_KEY from ${claimedApiKeyPath} (the token you saved after claim-api-key).`,
+    "Instructions:",
+    "- Set the environment variables listed above in your run context.",
+    "- Use the provided PAPERCLIP_API_KEY for all API authentication.",
     "",
     `api_base=${apiBaseHint}`,
     `task_id=${payload.taskId ?? ""}`,

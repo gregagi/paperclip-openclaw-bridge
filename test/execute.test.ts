@@ -159,6 +159,12 @@ describe("createServerAdapter", () => {
     expect(schema?.fields.some((field) => field.key === "sessionKeyStrategy")).toBe(true);
     expect(schema?.fields.some((field) => field.key === "devicePrivateKeyPem" && field.type === "textarea")).toBe(true);
     expect(schema?.fields.some((field) => field.key === "scopes" && String(field.default).includes("operator.pairing"))).toBe(true);
+    
+    // Verify removal of claimedApiKeyPath
+    expect(schema?.fields.some((field) => field.key === "claimedApiKeyPath")).toBe(false);
+    
+    const adapterModule = createServerAdapter();
+    expect(adapterModule.supportsLocalAgentJwt).toBe(true);
   });
 });
 
@@ -174,6 +180,8 @@ describe("execute", () => {
             paperclip: { shouldNot: "ship" },
             model: "gpt-5",
           },
+        }, {
+          authToken: "test-auth-token",
         }),
       );
 
@@ -185,7 +193,10 @@ describe("execute", () => {
         sessionKey: "paperclip:issue:issue-123",
         idempotencyKey: "run-123",
       });
-      expect(String(payload.message ?? "")).toContain("Paperclip wake event");
+      const message = String(payload.message ?? "");
+      expect(message).toContain("Paperclip wake event");
+      expect(message).toContain("PAPERCLIP_API_KEY=test-auth-token");
+      expect(message).not.toContain("paperclip-claimed-api-key.json");
     } finally {
       await gateway.close();
     }

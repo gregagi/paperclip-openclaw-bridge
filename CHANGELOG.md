@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.4
+
+### Patch Changes
+
+- Inject Paperclip API Key directly into the wake message using per-run JWTs (`supportsLocalAgentJwt`).
+- Remove `claimedApiKeyPath` configuration field as the agent no longer needs to read the key from its local filesystem.
+- Update unit tests to verify API key injection and schema cleanup.
+
 ## 0.1.3
 
 ### Patch Changes
