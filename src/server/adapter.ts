@@ -131,18 +131,6 @@ const configSchema: AdapterConfigSchema = {
       default: true,
       hint: "If device pairing is required, try one automatic pair/approve round before failing.",
     },
-    {
-      key: "paperclipApiUrl",
-      label: "Paperclip API URL",
-      type: "text",
-      hint: "Optional absolute Paperclip base URL to include in wake text.",
-    },
-    {
-      key: "claimedApiKeyPath",
-      label: "Claimed API key path",
-      type: "text",
-      hint: "Optional path to the claimed API key JSON file read at wake time.",
-    },
   ],
 };
 
@@ -153,7 +141,7 @@ export function createServerAdapter(): ExtendedServerAdapterModule {
     testEnvironment,
     models,
     getConfigSchema: () => configSchema,
-    supportsLocalAgentJwt: false,
+    supportsLocalAgentJwt: true,
     agentConfigurationDoc,
   };
 }

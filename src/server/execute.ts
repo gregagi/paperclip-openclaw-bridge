@@ -317,7 +317,7 @@ function buildWakePayload(ctx: AdapterExecutionContext): WakePayload {
 }
 
 function resolvePaperclipApiUrlOverride(value: unknown): string | null {
-  const raw = nonEmpty(value);
+  const raw = nonEmpty(value) ?? process.env.PAPERCLIP_API_URL;
   if (!raw) return null;
   try {
     const parsed = new URL(raw);
@@ -328,22 +328,14 @@ function resolvePaperclipApiUrlOverride(value: unknown): string | null {
   }
 }
 
-const DEFAULT_CLAIMED_API_KEY_PATH = "~/.openclaw/workspace/paperclip-claimed-api-key.json";
-
-function resolveClaimedApiKeyPath(value: unknown): string {
-  return nonEmpty(value) ?? DEFAULT_CLAIMED_API_KEY_PATH;
-}
 
 function buildPaperclipEnvForWake(ctx: AdapterExecutionContext, wakePayload: WakePayload): Record<string, string> {
-  const paperclipApiUrlOverride = resolvePaperclipApiUrlOverride(ctx.config.paperclipApiUrl);
   const paperclipEnv: Record<string, string> = {
     ...buildPaperclipEnv(ctx.agent),
     PAPERCLIP_RUN_ID: ctx.runId,
   };
 
-  if (paperclipApiUrlOverride) {
-    paperclipEnv.PAPERCLIP_API_URL = paperclipApiUrlOverride;
-  }
+
   if (wakePayload.taskId) paperclipEnv.PAPERCLIP_TASK_ID = wakePayload.taskId;
   if (wakePayload.wakeReason) paperclipEnv.PAPERCLIP_WAKE_REASON = wakePayload.wakeReason;
   if (wakePayload.wakeCommentId) paperclipEnv.PAPERCLIP_WAKE_COMMENT_ID = wakePayload.wakeCommentId;
@@ -356,91 +348,57 @@ function buildPaperclipEnvForWake(ctx: AdapterExecutionContext, wakePayload: Wak
   return paperclipEnv;
 }
 
-function buildWakeText(
+function buildTaskPrompt(
   payload: WakePayload,
   paperclipEnv: Record<string, string>,
-  structuredWakePrompt: string,
+  taskDescription: string,
 ): string {
-  const claimedApiKeyPath = "~/.openclaw/workspace/paperclip-claimed-api-key.json";
+  const hasTask = taskDescription.trim().length > 0;
   const orderedKeys = [
     "PAPERCLIP_RUN_ID",
     "PAPERCLIP_AGENT_ID",
-    "PAPERCLIP_COMPANY_ID",
-    "PAPERCLIP_API_URL",
     "PAPERCLIP_TASK_ID",
     "PAPERCLIP_WAKE_REASON",
-    "PAPERCLIP_WAKE_COMMENT_ID",
-    "PAPERCLIP_APPROVAL_ID",
-    "PAPERCLIP_APPROVAL_STATUS",
-    "PAPERCLIP_LINKED_ISSUE_IDS",
   ];
 
-  const envLines: string[] = [];
+  const contextLines: string[] = [];
   for (const key of orderedKeys) {
     const value = paperclipEnv[key];
     if (!value) continue;
-    envLines.push(`${key}=${value}`);
+    const label = key.replace("PAPERCLIP_", "").replace(/_/g, " ");
+    contextLines.push(`- ${label}: ${value}`);
   }
 
-  const issueIdHint = payload.taskId ?? payload.issueId ?? "";
-  const apiBaseHint = paperclipEnv.PAPERCLIP_API_URL ?? "<set PAPERCLIP_API_URL>";
-
   const lines = [
-    "Paperclip wake event for a cloud adapter.",
+    hasTask ? "PAPERCLIP TASK ASSIGNMENT" : "PAPERCLIP HEARTBEAT",
     "",
-    "Run this procedure now. Do not guess undocumented endpoints and do not ask for additional heartbeat docs.",
+    "CONTEXT:",
+    ...contextLines,
     "",
-    "Set these values in your run context:",
-    ...envLines,
-    `PAPERCLIP_API_KEY=<token from ${claimedApiKeyPath}>`,
-    "",
-    `Load PAPERCLIP_API_KEY from ${claimedApiKeyPath} (the token you saved after claim-api-key).`,
-    "",
-    `api_base=${apiBaseHint}`,
-    `task_id=${payload.taskId ?? ""}`,
-    `issue_id=${payload.issueId ?? ""}`,
-    `wake_reason=${payload.wakeReason ?? ""}`,
-    `wake_comment_id=${payload.wakeCommentId ?? ""}`,
-    `approval_id=${payload.approvalId ?? ""}`,
-    `approval_status=${payload.approvalStatus ?? ""}`,
-    `linked_issue_ids=${payload.issueIds.join(",")}`,
-    "",
-    "HTTP rules:",
-    "- Use Authorization: Bearer $PAPERCLIP_API_KEY on every API call.",
-    "- Use X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID on every mutating API call.",
-    "- Use only /api endpoints listed below.",
-    "- Do NOT call guessed endpoints like /api/cloud-adapter/*, /api/cloud-adapters/*, /api/adapters/cloud/*, or /api/heartbeat.",
-    "",
-    "Workflow:",
-    "1) GET /api/agents/me",
-    `2) Determine issueId: PAPERCLIP_TASK_ID if present, otherwise issue_id (${issueIdHint}).`,
-    "3) If issueId exists:",
-    "   - POST /api/issues/{issueId}/checkout with {\"agentId\":\"$PAPERCLIP_AGENT_ID\",\"expectedStatuses\":[\"todo\",\"backlog\",\"blocked\",\"in_review\"]}",
-    "   - GET /api/issues/{issueId}",
-    "   - GET /api/issues/{issueId}/comments",
-    "   - Execute the issue instructions exactly. If the issue is actionable, take concrete action in this run; do not stop at a plan unless planning was requested.",
-    "   - Leave durable progress with a clear next action. Use child issues for long or parallel delegated work instead of polling agents, sessions, or processes.",
-    "   - Create child issues directly when you know what needs to be done; use POST /api/issues/{issueId}/interactions with kind suggest_tasks, ask_user_questions, or request_confirmation when the board/user must choose, answer, or confirm before you can continue.",
-    "   - For plan approval, update the plan document first, then create request_confirmation targeting the latest plan revision with idempotencyKey confirmation:{issueId}:plan:{revisionId}; wait for acceptance before creating implementation subtasks.",
-    "   - If blocked, PATCH /api/issues/{issueId} with {\"status\":\"blocked\",\"comment\":\"what is blocked, who owns the unblock, and the next action\"}.",
-    "   - If instructions require a comment, POST /api/issues/{issueId}/comments with {\"body\":\"...\"}.",
-    "   - PATCH /api/issues/{issueId} with {\"status\":\"done\",\"comment\":\"what changed and why\"}.",
-    "4) If issueId does not exist:",
-    "   - GET /api/companies/$PAPERCLIP_COMPANY_ID/issues?assigneeAgentId=$PAPERCLIP_AGENT_ID&status=todo,in_progress,in_review,blocked",
-    "   - Pick in_progress first, then in_review when you were woken by a comment, then todo, then blocked, then execute step 3.",
-    "",
-    "Useful endpoints for issue work:",
-    "- POST /api/issues/{issueId}/comments",
-    "- PATCH /api/issues/{issueId}",
-    "- POST /api/companies/{companyId}/issues (when asked to create a new issue)",
-    ...(structuredWakePrompt
+    "INSTRUCTIONS:",
+    ...(hasTask
       ? [
-          "",
-          structuredWakePrompt,
+          "- Execute the task described in the 'TASK DESCRIPTION' section below.",
+          "- Complete all work in this run. Do not stop at a plan unless planning was requested.",
+          "- Provide a clear summary of your work and progress in your response.",
+          "- MANDATORY: When the task is complete, you MUST include a line with exactly 'STATUS: DONE' at the end of your response.",
+          "- MANDATORY: If the task is blocked, you MUST include a line with exactly 'STATUS: BLOCKED' and explain why.",
         ]
-      : []),
+      : [
+          "- This is a background heartbeat. Check your local environment for any pending maintenance.",
+          "- If there is no active work to perform, simply respond with 'Heartbeat OK' and exit.",
+        ]),
     "",
-    "Complete the workflow in this run.",
+    ...(hasTask
+      ? [
+          "TASK DESCRIPTION:",
+          taskDescription,
+          "",
+          "Complete your task now.",
+        ]
+      : [
+          "Heartbeat check complete.",
+        ]),
   ];
   return lines.join("\n");
 }
@@ -453,7 +411,8 @@ function appendWakeText(baseText: string, wakeText: string): string {
 function joinWakePayloadSections(structuredWakePrompt: string, structuredWakeJson: string): string {
   const sections = [
     structuredWakePrompt.trim(),
-    "Structured wake payload JSON:",
+    "",
+    "STRUCTURED DATA (JSON):",
     "```json",
     structuredWakeJson,
     "```",
@@ -1076,9 +1035,9 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
 
   const wakePayload = buildWakePayload(ctx);
   const paperclipEnv = buildPaperclipEnvForWake(ctx, wakePayload);
-  const structuredWakePrompt = renderWakePayloadPrompt(ctx.context.paperclipWake);
+  const structuredWakePrompt = (asString(ctx.context.paperclipTaskMarkdown, "") || renderWakePayloadPrompt(ctx.context.paperclipWake)).trim();
   const structuredWakeJson = stringifyWakePayload(ctx.context.paperclipWake);
-  const wakeText = buildWakeText(
+  const wakeText = buildTaskPrompt(
     wakePayload,
     paperclipEnv,
     structuredWakeJson
@@ -1363,6 +1322,54 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
         null;
       const summary = summaryFromEvents || summaryFromPayload || null;
 
+      // Proxy Stateless Agent Signals
+      // Since the agent is disconnected from the API, we allow it to signal status
+      // changes via special markers in its summary. The bridge then proxies these
+      // calls to Paperclip using its internal authToken.
+      const targetIssueId = wakePayload.issueId || asString(ctx.context.issueId, "");
+      const apiUrl = resolvePaperclipApiUrlOverride(ctx.config.paperclipApiUrl);
+      const doneMatch = summary?.match(/^STATUS:\s*DONE\s*$/im);
+      const blockedMatch = summary?.match(/^STATUS:\s*BLOCKED\s*$/im);
+
+      if ((doneMatch || blockedMatch) && targetIssueId && apiUrl && ctx.authToken) {
+        const newStatus = doneMatch ? "done" : "blocked";
+        await ctx.onLog(
+          "stdout",
+          `[openclaw-bridge] detected STATUS: ${newStatus.toUpperCase()}; proxying status update to Paperclip API for issue ${targetIssueId}\n`,
+        );
+        try {
+          const patchUrl = `${apiUrl.replace(/\/$/, "")}/api/issues/${targetIssueId}`;
+          const response = await fetch(patchUrl, {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${ctx.authToken}`,
+              "X-Paperclip-Run-Id": ctx.runId,
+            },
+            body: JSON.stringify({ status: newStatus }),
+          });
+          if (!response.ok) {
+            const errorText = await response.text();
+            await ctx.onLog(
+              "stderr",
+              `[openclaw-bridge] failed to proxy status update: ${response.status} ${response.statusText} - ${errorText}\n`,
+            );
+          } else {
+            await ctx.onLog("stdout", `[openclaw-bridge] status update proxied successfully\n`);
+          }
+        } catch (err) {
+          await ctx.onLog(
+            "stderr",
+            `[openclaw-bridge] error proxying status update: ${err instanceof Error ? err.message : String(err)}\n`,
+          );
+        }
+      } else if (targetIssueId) {
+        await ctx.onLog(
+          "stdout",
+          `[openclaw-bridge] no status signal (STATUS: DONE/BLOCKED) detected in agent summary; keeping current issue status\n`,
+        );
+      }
+
       const acceptedResult = asRecord(acceptedPayload?.result);
       const latestPayload = asRecord(latestResultPayload);
       const latestResult = asRecord(latestPayload?.result);
@@ -1395,7 +1402,10 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
         ...(model ? { model } : {}),
         ...(usage ? { usage } : {}),
         ...(costUsd > 0 ? { costUsd } : {}),
-        resultJson: asRecord(latestResultPayload),
+        resultJson: {
+          ...asRecord(latestResultPayload),
+          ...(summary ? { summary } : {}),
+        },
         ...(runtimeServices.length > 0 ? { runtimeServices } : {}),
         ...(summary ? { summary } : {}),
       };
@@ -1464,3 +1474,4 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     }
   }
 }
+
