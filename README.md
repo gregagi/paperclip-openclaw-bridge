@@ -73,8 +73,7 @@ This is the known-good shape for a self-hosted Paperclip agent such as Ari conne
   "clientMode": "backend",
   "clientVersion": "",
   "autoPairOnFirstConnect": true,
-  "paperclipApiUrl": "https://paperclip.example.com",
-  "claimedApiKeyPath": ""
+  "paperclipApiUrl": "https://paperclip.example.com"
 }
 ```
 
@@ -97,7 +96,6 @@ Equivalent Paperclip UI fields:
 - **Gateway client version**: `clientVersion`
 - **Auto-pair on first connect**: `autoPairOnFirstConnect`
 - **Paperclip API URL**: `paperclipApiUrl`
-- **Claimed API key path**: `claimedApiKeyPath`
 
 ### Field reference
 
@@ -252,11 +250,6 @@ Example:
 https://paperclip.example.com
 ```
 
-#### `claimedApiKeyPath` / Claimed API key path
-
-Optional path to a claimed Paperclip API key JSON file read at wake time.
-
-Leave blank unless the OpenClaw-side runtime instructions expect a specific claimed API key file.
 
 ## Device-auth troubleshooting
 
